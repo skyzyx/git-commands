@@ -1,10 +1,19 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+# Originally taken from [visionmedia/git-extras](https://github.com/visionmedia/git-extras) (MIT License).
 
-# Originally taken from
-# [visionmedia/git-extras](https://github.com/visionmedia/git-extras)
-# (MIT License).
+##
+# Deletes a branch, both locally and on the remote origin.
+#
+# Usage:
+#   git contains {hash}
+##
 
-branch=$1
-test -z "$branch" && echo "branch required." 1>&2 && exit 1
-git branch -D "$branch"
-git branch -d -r "origin/$branch" && git push origin :"$branch"
+branch="$1"
+
+if [[ -z "${branch}" ]]; then
+    echo "Branch name is required." >&2
+    exit 1
+fi
+
+git branch -D "${branch}"
+git branch -d -r "origin/${branch}" && git push origin :"${branch}"

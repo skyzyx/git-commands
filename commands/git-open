@@ -1,39 +1,54 @@
 #! /usr/bin/env bash
-
-# Copyright (c) 2018-2021 Ryan Parman <http://ryanparman.com>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
+# Copyright (c) 2018-2025 Ryan Parman <https://ryanparman.com>
 # http://opensource.org/licenses/MIT
 
+##
+# Opens the website for the current Git branch. Works for GitHub, GitHub
+# Enterprise, GitLab, and BitBucket. When it can't figure out what else to do,
+# it assumes a GitHub-compatible URL pattern.
+#
 # Usage:
-#   git open {remote} {branch}
+#   git open
+#   git open <remote>
+#   git open <remote> <branch>
+##
 
-TRACKING="$(git status -sb | head -n 1 | sed -Ee's#(.*)\.\.\.([^/]+)/(.*)$#\2 \3#')"
-REMOTE=${1:-$(echo "$TRACKING" | awk '{print $1}')}
-BRANCH=${2:-$(echo "$TRACKING" | awk '{print $2}')}
+# If not specified at runtime, apply default values (remote: origin; branch: current)
+remote=${1:-origin}
+branch=${2:-$(git rev-parse --abbrev-ref HEAD)}
 
-BASEURL="$(git config --get "remote.$REMOTE.url" | sed -Ene's#^(git@|https://)github(.mheducation)?.com(/|:)([^/]*)/(.*).git#https://github\2.com/\4/\5#p')"
-GHURL="$BASEURL/tree/$BRANCH"
+# Get the URL for the remote.
+base_url="$(git remote get-url "${remote}")"
 
-if hash open 2> /dev/null; then
-    open "$GHURL"
+# If this is already an HTTPS remote URL, use it as-is.
+if echo "${base_url}" | grep -Eqe "^(git\+)?http"; then
+    base_url="${base_url#git+}"
+
+    if hash open 2>/dev/null; then
+        open "${base_url}"
+    else
+        echo "${base_url}"
+    fi
+
+    exit 0
+fi
+
+# Assume an SSH URL.
+base_url_pieces="$(echo "${base_url}" | sed -Ee 's,^([^@]+?)@([^:]+?):(.*?)$,\1 \2 \3,')"
+hostname="$(echo -n "${base_url_pieces}" | awk '{print $2}')"
+path="$(echo -n "${base_url_pieces}" | awk '{print $3}')"
+path="${path%.git}"
+
+# Works for GitHub.com, GitHub Enterprise, and GitLab.org. Treat as default.
+git_url="https://${hostname}/${path}/tree/${branch}"
+
+# BitBucket uses 'src' instead of 'tree'.
+if [[ "${hostname}" == *bitbucket* ]]; then
+    git_url="https://${hostname}/${path}/src/${branch}"
+fi
+
+if hash open 2>/dev/null; then
+    open "${git_url}"
 else
-    echo "$GHURL"
+    echo "${git_url}"
 fi

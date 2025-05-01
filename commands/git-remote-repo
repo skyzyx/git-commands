@@ -1,28 +1,26 @@
 #! /usr/bin/env bash
-
-# Copyright (c) 2014-2021 Ryan Parman <http://ryanparman.com>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
+# Copyright (c) 2014-2021 Ryan Parman <https://ryanparman.com>
 # http://opensource.org/licenses/MIT
 
+##
+# Returns the GitHub (et al) owner/repository pattern for the current branch's
+# remote SSH URL. It doesn't make sense to use this with remotes that are not
+# SSH or follow the GitHub style.
+#
 # Usage:
-#   git remote-repo origin
+#   git remote-repo <remote>
+#   git remote-repo `git remotes`
+##
 
-git remote -v | grep -i ^"$1" | grep -i "\(fetch\)" | awk '{print $2}' | sed -e "s/.*://" | sed -e "s/\.git//"
+remote_name="$1"
+
+# Get the URL.
+repo_url="$(git remote get-url "${remote_name}")"
+
+# Strip the username and host from the URL.
+repo_url="$(echo -n "${repo_url}" | sed -e "s,.*:,,")"
+
+# Strip the trailing `.git` from the URL.
+repo_url="$(echo -n "${repo_url}" | sed -e "s/\.git$//")"
+
+echo "${repo_url}"
