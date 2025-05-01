@@ -34,7 +34,8 @@ if echo "${base_url}" | grep -Eqe "^(git\+)?http"; then
 fi
 
 # Assume an SSH URL.
-base_url_pieces="$(echo "${base_url}" | sed -Ee 's,^([^@]+?)@([^:]+?):(.*?)$,\1 \2 \3,')"
+# macOS/BSD sed does not support non-greedy modifiers, but this is probably fine.
+base_url_pieces="$(echo "${base_url}" | sed -Ee 's,^([^@]+)@([^:]+):(.*)$,\1 \2 \3,')"
 hostname="$(echo -n "${base_url_pieces}" | awk '{print $2}')"
 path="$(echo -n "${base_url_pieces}" | awk '{print $3}')"
 path="${path%.git}"
