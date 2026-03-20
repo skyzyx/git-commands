@@ -11,7 +11,7 @@
 
 tag="$1"
 
-if [[ -z "${branch}" ]]; then
+if [[ -z "${tag}" ]]; then
     echo "Tag name is required." >&2
     exit 1
 fi
