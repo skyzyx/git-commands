@@ -53,6 +53,8 @@ INPUT_FOR_CHUNK="<previous_changes>\n${ACCUMULATED_CHANGES}\n</previous_changes>
 
 FILE_CHANGES_PROMPT="$(
 cat << EOF
+You are an expert software engineer who writes clear and concise git commit messages.
+
 Follow these instructions precisely.
 
 1. Synthesize a commit message that captures the overall intent and impact of the changes. Focus on the "why" and "what" rather than the "how".
@@ -94,7 +96,11 @@ FINAL_COMMIT_MESSAGE="$(echo "${INPUT_FOR_CHUNK}" | claude \
   --model 'claude-haiku-4-5' \
   --no-session-persistence 2>/dev/null || true)"
 
-FINAL_COMMIT_MESSAGE="$(printf "%s" "${FINAL_COMMIT_MESSAGE}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+FINAL_COMMIT_MESSAGE="$(
+  printf "%s" "${FINAL_COMMIT_MESSAGE}" \
+    | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+    | sed -E 's,\[([0-9]+;)*([0-9]+)m,,g; s,\x1B,,g; s,^>\s+,,' \
+)"
 
 TEMP_FILE="$(mktemp)";
 printf "%s\n" "${FINAL_COMMIT_MESSAGE}" > "${TEMP_FILE}"
