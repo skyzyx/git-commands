@@ -96,10 +96,14 @@ case "${GITGEN_PROVIDER}" in
   "claude")
     if ! command -v claude >/dev/null 2>&1; then
       echo "Error: 'claude' command not found. Please install the Claude Code CLI tool to use this provider."
+      echo "  https://code.claude.com/docs/en/overview"
+      echo ""
+      echo "Run 'claude' by itself to complete any initial setup steps, such as logging in or selecting a "
+      echo "default model, before using this script."
       exit 1
     fi
 
-    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E "s,([4-9])\.([4-9]),\1-\2,")"
+    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E 's,_,-,g; s,([4-9])\.([4-9]),\1-\2,')"
     echo "Generating commit message using Claude Code and model ${GITGEN_MODEL}..." > /dev/stderr
 
     # Use Claude Code
@@ -111,13 +115,97 @@ case "${GITGEN_PROVIDER}" in
       --no-session-persistence 2>/dev/null || true)"
     ;;
 
-  "kiro")
-    if ! command -v kiro >/dev/null 2>&1; then
-      echo "Error: 'kiro' command not found. Please install the Kiro CLI tool to use this provider."
+  "copilot")
+    if ! command -v copilot >/dev/null 2>&1; then
+      echo "Error: 'copilot' command not found. Please install the GitHub Copilot CLI tool to use this provider."
+      echo "  brew install copilot-cli"
+      echo ""
+      echo "Run 'copilot' by itself to complete any initial setup steps, such as logging "
+      echo "in or selecting a default model, before using this script."
       exit 1
     fi
 
-    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E "s,([4-9])-([4-9]),\1.\2,")"
+    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E 's,_,-,g; s,([4-9])-([4-9]),\1.\2,')"
+    echo "Generating commit message using GitHub Copilot CLI and model ${GITGEN_MODEL}..." > /dev/stderr
+
+    # Use GitHub Copilot CLI
+    FINAL_COMMIT_MESSAGE="$(copilot \
+      --model "${GITGEN_MODEL}" \
+      --output-format text \
+      --no-ask-user \
+      --silent \
+      --stream="off" \
+      --no-color \
+      --prompt "${FILE_CHANGES_PROMPT}\n\n${INPUT_FOR_CHUNK}" 2>/dev/null || true)"
+    ;;
+
+  # "duo")
+  #   if ! command -v duo >/dev/null 2>&1; then
+  #     echo "Error: 'duo' command not found. Please install the GitLab 'duo' CLI tool to use this provider."
+  #     echo "  npm install -g @gitlab/duo-cli"
+  #     echo ""
+  #     echo "The current repository must be enabled for GitLab Duo Agent Platform, and the user must be authenticated "
+  #     echo "and have DAP permissions. Run 'duo' by itself first to ensure that it is functioning as expected, "
+  #     echo "before using this script."
+  #     exit 1
+  #   fi
+
+  #   GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E 's,-,_,g; s,\.,_,g')"
+
+  #   # GitLab uses different names from everyone else for Anthropic models.
+  #   case "${GITGEN_MODEL}" in
+  #     "claude_haiku_4_5")
+  #       GITGEN_MODEL="claude_haiku_4_5_20251001"
+  #       ;;
+  #     "claude_opus_4_1")
+  #       GITGEN_MODEL="claude_opus_4_1_20250805"
+  #       ;;
+  #     "claude_opus_4")
+  #       GITGEN_MODEL="claude_opus_4_20250514"
+  #       ;;
+  #     "claude_opus_4_5")
+  #       GITGEN_MODEL="claude_opus_4_5_20251101"
+  #       ;;
+  #     "claude_opus_4_6")
+  #       GITGEN_MODEL="claude_opus_4_6_20260205"
+  #       ;;
+  #     "claude_sonnet_4")
+  #       GITGEN_MODEL="claude_sonnet_4_20250514"
+  #       ;;
+  #     "claude_sonnet_4_5")
+  #       GITGEN_MODEL="claude_sonnet_4_5_20250929"
+  #       ;;
+  #     *)
+  #       ;;
+  #   esac
+
+  #   echo "Generating commit message using GitLab Duo Agent Platform and model ${GITGEN_MODEL}..." > /dev/stderr
+
+  #   duo run \
+  #     --goal "${FILE_CHANGES_PROMPT}\n\n${INPUT_FOR_CHUNK}" \
+  #     --model "${GITGEN_MODEL}" \
+  #     --log-level="error"
+
+  #   exit 1
+
+  #   # Use GitLab Duo CLI
+  #   FINAL_COMMIT_MESSAGE="$(duo run \
+  #     --goal "${FILE_CHANGES_PROMPT}\n\n${INPUT_FOR_CHUNK}" \
+  #     --model "${GITGEN_MODEL}" \
+  #     --log-level="error" 2>/dev/null || true)"
+  #   ;;
+
+  "kiro")
+    if ! command -v kiro-cli >/dev/null 2>&1; then
+      echo "Error: 'kiro-cli' command not found. Please install the Kiro CLI tool to use this provider."
+      echo "  https://kiro.dev/docs/cli/"
+      echo ""
+      echo "Run '/Applications/Kiro CLI.app' by itself to complete any initial setup steps, such as logging "
+      echo "in or selecting a default model, before using this script."
+      exit 1
+    fi
+
+    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E 's,_,-,g; s,([4-9])-([4-9]),\1.\2,')"
     echo "Generating commit message using Kiro CLI and model ${GITGEN_MODEL}..." > /dev/stderr
 
     # Use Kiro CLI
@@ -129,7 +217,7 @@ case "${GITGEN_PROVIDER}" in
     ;;
 
   *)
-    echo "Error: Unsupported GITGEN_PROVIDER '${GITGEN_PROVIDER}'. Supported providers are: claude, kiro."
+    echo "Error: Unsupported GITGEN_PROVIDER '${GITGEN_PROVIDER}'. Supported providers are: claude, copilot, kiro."
     exit 1
     ;;
 esac
@@ -138,12 +226,13 @@ FINAL_COMMIT_MESSAGE="$(
   printf "%s" "${FINAL_COMMIT_MESSAGE}" \
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
     | sed -E 's,\[([0-9]+;)*([0-9]+)m,,g; s,\x1B,,g; s,^>\s+,,' \
+    | sed -E 's,^●\s,,; s,^\s*-\s,* ,' \
 )"
 
 TEMP_FILE="$(mktemp)";
 printf "%s\n" "${FINAL_COMMIT_MESSAGE}" > "${TEMP_FILE}"
 
-if git commit --file="${TEMP_FILE}" --edit; then
+if git commit --file="${TEMP_FILE}" --edit "$@"; then
   rm "${TEMP_FILE}"
 else
   echo "Commit failed. Final commit message was:"
