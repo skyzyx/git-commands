@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+GITGEN_MODEL="${GITGEN_MODEL:-claude-haiku-4-5}" # Default model for commit message generation
+GITGEN_PROVIDER="${GITGEN_PROVIDER:-claude}" # Default provider for commit message generation
+
 DIFF_CONTEXT=5 # Default diff context lines
 PREV_COMMITS_WINDOW=5 # Default number of previous commit titles to fetch for context
 
@@ -89,12 +92,47 @@ EOF
 # printf "%s\n\n%s\n" "${FILE_CHANGES_PROMPT}" "${INPUT_FOR_CHUNK}"
 # echo "-------------------------------------------------------------------------"
 
-FINAL_COMMIT_MESSAGE="$(echo "${INPUT_FOR_CHUNK}" | claude \
-  --system-prompt "${FILE_CHANGES_PROMPT}" \
-  --print \
-  --output-format text \
-  --model 'claude-haiku-4-5' \
-  --no-session-persistence 2>/dev/null || true)"
+case "${GITGEN_PROVIDER}" in
+  "claude")
+    if ! command -v claude >/dev/null 2>&1; then
+      echo "Error: 'claude' command not found. Please install the Claude Code CLI tool to use this provider."
+      exit 1
+    fi
+
+    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E "s,([4-9])\.([4-9]),\1-\2,")"
+    echo "Generating commit message using Claude Code and model ${GITGEN_MODEL}..." > /dev/stderr
+
+    # Use Claude Code
+    FINAL_COMMIT_MESSAGE="$(echo "${INPUT_FOR_CHUNK}" | claude \
+      --system-prompt "${FILE_CHANGES_PROMPT}" \
+      --print \
+      --output-format text \
+      --model "${GITGEN_MODEL}" \
+      --no-session-persistence 2>/dev/null || true)"
+    ;;
+
+  "kiro")
+    if ! command -v kiro >/dev/null 2>&1; then
+      echo "Error: 'kiro' command not found. Please install the Kiro CLI tool to use this provider."
+      exit 1
+    fi
+
+    GITGEN_MODEL="$(echo "${GITGEN_MODEL}" | sed -E "s,([4-9])-([4-9]),\1.\2,")"
+    echo "Generating commit message using Kiro CLI and model ${GITGEN_MODEL}..." > /dev/stderr
+
+    # Use Kiro CLI
+    FINAL_COMMIT_MESSAGE="$(kiro-cli chat \
+      --model "${GITGEN_MODEL}" \
+      --format plain \
+      --no-interactive \
+      "${FILE_CHANGES_PROMPT}\n\n${INPUT_FOR_CHUNK}" 2>/dev/null || true)"
+    ;;
+
+  *)
+    echo "Error: Unsupported GITGEN_PROVIDER '${GITGEN_PROVIDER}'. Supported providers are: claude, kiro."
+    exit 1
+    ;;
+esac
 
 FINAL_COMMIT_MESSAGE="$(
   printf "%s" "${FINAL_COMMIT_MESSAGE}" \
